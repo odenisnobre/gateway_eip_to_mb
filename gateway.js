@@ -184,6 +184,6 @@ async function lerTags() {
 /****** Bloco ciclo *****/
 
 // Configura tempo de atualização
-setInterval(lerTags, MB.tempoAtualizacao);
+setInterval(lerTags, config.appConfig.tempoAtualizacao);
 
 /*****************************************************************************/
