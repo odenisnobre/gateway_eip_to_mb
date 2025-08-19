@@ -3,7 +3,6 @@
 		"enderecoInicialCoilsLeitura": 100,	
 		"enderecoInicialCoilsEscrita": 500,	
 		"enderecoInicialHR": 100,			
-		"tempoAtualizacao": 1000,
 		"qntCoilsEscrita": 100,
 		"qntCoilsLeitura": 100,
 		"qntHoldinRegisters": 100,
@@ -30,6 +29,7 @@
 		]
 	},
 	"appConfig": {
-		"boasVindas": "Servidor Modbus TCP Disponivel na Porta"
+		"boasVindas": "Servidor Modbus TCP Disponivel na Porta",
+		"tempoAtualizacao": 1000
 	}
 }
