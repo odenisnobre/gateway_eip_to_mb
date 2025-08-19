@@ -1,8 +1,0 @@
-{
-  "pkg": {
-    "assets": [],
-    "scripts": [],
-    "targets": ["node18"],
-    "outputPath": "dist"
-  }
-}

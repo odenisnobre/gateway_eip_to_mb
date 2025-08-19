@@ -46,7 +46,7 @@ try {
 console.log('Config usada:', externalConfigPath || '(default embutido)');
 /*****************************************************************************/
 
-/****** Bloco inicio confituracao servidor modbus *****/
+/****** Bloco inicio configuracao servidor modbus *****/
 
 //Define objeto de configuracao modbus
 const MB = config.mbserverConfig;
@@ -116,5 +116,74 @@ serverTCP.on("socketError", (err) => {
 
 // mostra mensagem de log
 console.log(`${config.appConfig.boasVindas} ${config.mbserverConfig.porta}...`);
+
+/*****************************************************************************/
+
+
+/****** Bloco inicio configuracao do PLC *****/
+
+// Define novo objeto PLC Control
+const PLC = new Controller();
+
+// Inicia variaveis por tipo
+var tagsHoldingRegisters = [];
+var tagsCoilsLeitura = [];
+var tagsCoilsEscrita = [];
+
+// Define variavel com todas a variaveis configuradas
+const variaveisPLC = config.plcConfig.variaveis;
+
+// Array com as tags de leitura do PLC */
+variaveisPLC.forEach(function(element) {	
+	if(element.tipo == 'coil' && element.funcao == 'leitura'){
+		tagsCoilsLeitura.push(element.nome);
+	} else if(element.tipo == 'coil' && element.funcao == 'escrita'){
+		tagsCoilsEscrita.push(element.nome);  
+	} else {
+		tagsHoldingRegisters.push(element.nome);
+	}
+})
+
+// Inicia variável de status de conexão com o PLC
+let conectado = false;
+
+// Inicia processo para verificação de comunicação com o PLC
+process.on("uncaughtException", (err) => {
+    if (err.message.includes("Socket Transmission Failure Occurred")) {
+		console.warn("Conexão perdida com o PLC. Tentando reconectar...");
+        conectado = false;
+    } else {
+        console.error("Erro fatal:", err);
+    }
+});
+
+// Monitora comunicação com o PLC
+PLC.on("error", (err) => {
+   console.warn("Falha de comunicação:", err.code || err.message);
+    conectado = false;
+});
+
+/*****************************************************************************/
+
+/****** Bloco ciclo de leitura *****/
+
+// Efetua leitura das tags do PLC
+async function lerTags() {
+    if (!conectado && !MB.simulador) {
+        conectado = await conectarPLC(PLC, config, coilsLeitura, MB);
+        return;
+    }
+	
+	if(MB.simulador){
+		const s = await simuladorHR(holdingRegisters)
+		//console.log(s)
+	}
+}
+/*****************************************************************************/
+
+/****** Bloco ciclo *****/
+
+// Configura tempo de atualização
+setInterval(lerTags, MB.tempoAtualizacao);
 
 /*****************************************************************************/
