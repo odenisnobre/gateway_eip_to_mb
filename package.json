@@ -1,13 +1,12 @@
-
 {
-  "name": "modbus-server",
+  "name": "gateway",
   "version": "1.0.1",
   "private": true,
-  "bin": "modbus-server.js",
+  "bin": "gateway.js",
   "scripts": {
-    "start": "node modbus-server.js",
-    "dev": "node modbus-server.js",
-    "build:win": "pkg . --targets node18 --output dist/modbus-server",
+    "start": "node gateway.js",
+    "dev": "node gateway.js",
+    "build:win": "pkg . --targets node16-win-x64 --output dist/gateway",
     "build": "npm run build:win"
   },
   "dependencies": {
@@ -15,7 +14,7 @@
     "modbus-serial": "^8.0.21-no-serial-port"
   },
   "devDependencies": {
-    "pkg": "^5.8.1"
+    "pkg": "^5.7.0"
   },
   "pkg": {
     "assets": [
