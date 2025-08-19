@@ -12,8 +12,7 @@ const { conectarPLC, simuladorHR } = require('./utils/funcs');
 const fs = require('fs');
 const path = require('path');
 
-/*****************************************************************************/
-/*Todo este bloco é para verificação para geração do executável */
+/****** Bloco inicio carregamento arquivo de configuracao *****/
 const isPkg = !!process.pkg;
 const exeDir = isPkg ? path.dirname(process.execPath) : __dirname;
 function firstExisting(arr) {
@@ -45,4 +44,77 @@ try {
 	console.error('Falha ao carregar configuração:', e.message);
 }
 console.log('Config usada:', externalConfigPath || '(default embutido)');
+/*****************************************************************************/
+
+/****** Bloco inicio confituracao servidor modbus *****/
+
+//Define objeto de configuracao modbus
+const MB = config.mbserverConfig;
+
+//Define quantidade de variaveis dos registros modbus 
+const holdingRegisters = new Array(MB.qntHoldinRegisters).fill(0);
+const coilsLeitura = new Array(MB.qntCoilsLeitura).fill(false);
+const coilsEscrita = new Array(MB.qntCoilsEscrita).fill(false);
+
+// Configuração de registros do servidor modbus
+const vector = {	
+	// 4xxxx – Holding Registers  
+	getHoldingRegister: (addr /*, unitID */) => {
+		const addrReal = addr - MB.enderecoInicialHR;
+		if (Number.isInteger(addrReal) && addrReal >= 0 && addrReal < holdingRegisters.length) {
+			return Promise.resolve(holdingRegisters[addrReal]);
+		}
+		return Promise.reject(new Error("Endereço de holding inválido"));
+	},
+	// (opcional) escrita de HR – FC06/FC16
+	setRegister: (addr, value /*, unitID */) => {
+		const addrReal = addr - MB.enderecoInicialHR;
+		if (Number.isInteger(addrReal) && addrReal >= 0 && addrReal < holdingRegisters.length) {
+		holdingRegisters[addrReal] = value & 0xFFFF;
+		return Promise.resolve();
+		}
+		return Promise.reject(new Error("Endereço de holding inválido p/ escrita"));
+	},
+	// 0xxxx – Coils (LEITURA) → checa as duas faixas (100.. e 500..)
+	getCoil: (addr /*, unitID */) => {
+		// 1) Faixa de leitura
+		let idxR = addr - MB.enderecoInicialCoilsLeitura; // 100
+		if (Number.isInteger(idxR) && idxR >= 0 && idxR < coilsLeitura.length) {
+			return Promise.resolve(!!coilsLeitura[idxR]);
+		}
+		// 2) Faixa de escrita
+		let idxW = addr - MB.enderecoInicialCoilsEscrita; // 500
+		if (Number.isInteger(idxW) && idxW >= 0 && idxW < coilsEscrita.length) {
+			return Promise.resolve(!!coilsEscrita[idxW]);
+		}
+		return Promise.reject(new Error("Endereço de coil inválido"));
+	},
+	// 0xxxx – Coils (ESCRITA) → somente faixa 500..
+	setCoil: (addr, value /*, unitID */) => {
+		const idxW = addr - MB.enderecoInicialCoilsEscrita; // 500
+		if (Number.isInteger(idxW) && idxW >= 0 && idxW < coilsEscrita.length) {
+			const bit = !!value;
+			coilsEscrita[idxW] = bit;
+			return Promise.resolve();
+		}
+		return Promise.reject(new Error("Endereço de coil inválido p/ escrita"));
+	},
+};
+
+// Cria instancia do servidor modbus TCP
+const serverTCP = new ModbusRTU.ServerTCP(vector, {
+    host: MB.ip,
+    port: MB.porta,
+    unitID: MB.id,
+    debug: false,
+});
+
+// Monitora comunicação do servidor Modbus */
+serverTCP.on("socketError", (err) => {
+    console.error("Erro de socket:", err);
+});
+
+// mostra mensagem de log
+console.log(`${config.appConfig.boasVindas} ${config.mbserverConfig.porta}...`);
+
 /*****************************************************************************/

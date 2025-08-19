@@ -1,0 +1,25 @@
+
+{
+  "name": "modbus-server",
+  "version": "1.0.1",
+  "private": true,
+  "bin": "modbus-server.js",
+  "scripts": {
+    "start": "node modbus-server.js",
+    "dev": "node modbus-server.js",
+    "build:win": "pkg . --targets node18 --output dist/modbus-server",
+    "build": "npm run build:win"
+  },
+  "dependencies": {
+    "ethernet-ip": "^1.2.5",
+    "modbus-serial": "^8.0.21-no-serial-port"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  },
+  "pkg": {
+    "assets": [
+      "utils/config-default.json"
+    ]
+  }
+}
