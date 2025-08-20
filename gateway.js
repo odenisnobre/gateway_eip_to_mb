@@ -115,7 +115,7 @@ serverTCP.on("socketError", (err) => {
 });
 
 // mostra mensagem de log
-console.log(`${config.appConfig.boasVindas} ${MB.porta}...`);
+console.log(`${config.appConfig.boasVindas} ${MB.porta} : ${MB.id}`);
 
 /*****************************************************************************/
 
@@ -181,7 +181,7 @@ async function lerTags() {
 	
 	
 	
-	if(tagsHoldingRegisters.length > 1){
+	if(tagsHoldingRegisters.length > 1 && !MB.simulador){
 		for (let i = 0; i < tagsHoldingRegisters.length; i++) {
 			const nome = tagsHoldingRegisters[i];
 			const tag = new Tag(nome);
@@ -202,7 +202,7 @@ async function lerTags() {
 			}		
 		}
 	}
-	if(tagsCoilsLeitura.length > 0) {
+	if(tagsCoilsLeitura.length > 0 && !MB.simulador) {
 		for (let k = 1; k < tagsCoilsLeitura.length+1; k++) {
 			const nome = tagsCoilsLeitura[k-1];
 			console.log(nome)
