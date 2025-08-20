@@ -10,7 +10,7 @@
 		"ip": "0.0.0.0",
 		"id": 1,
 		"bitFalha": 0,
-		"simulador": true
+		"simulador": false
 	},
 	"plcConfig": {
 		"ip": "192.168.0.154",

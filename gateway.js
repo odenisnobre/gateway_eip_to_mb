@@ -176,7 +176,7 @@ async function lerTags() {
 	
 	if(MB.simulador){
 		const s = await simuladorHR(holdingRegisters)
-		//console.log(s)
+		console.log(s)
 	}
 }
 /*****************************************************************************/
