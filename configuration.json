@@ -12,22 +12,19 @@
 		"bitFalha": 0,
 		"simulador": false
 	},
-	"plcConfig": {
+	"plcs": [{
 		"ip": "192.168.0.154",
 		"slot": 0,
+		"hrBase": 0,
+		"coilReadBase": 0,
+		"coilWriteBase": 0,
 		"variaveis": [			
-				{"nome": "Teste11", "tipo": "coil", "funcao": "leitura"},
-				{"nome": "Inicio", "tipo": "coil", "funcao": "escrita"},
+				{"nome": "Inicio", "tipo": "coil", "funcao": "leitura"},
 				{"nome": "TON1.EN", "tipo": "coil", "funcao": "leitura"},
-				{"nome": "TON2.EN", "tipo": "coil", "funcao": "escrita"},
-				{"nome": "Real1", "tipo": "holdingRegister"},
-				{"nome": "Real2", "tipo": "holdingRegister"},
-				{"nome": "Result", "tipo": "holdingRegister"},
-				{"nome": "Teste111", "tipo": "holdingRegister"},
-				{"nome": "Int1", "tipo": "holdingRegister"},
-				{"nome": "Int2", "tipo": "holdingRegister"}
+				{"nome": "Result", "tipo": "hr"},
+				{"nome": "Teste111", "tipo": "hr"}
 		]
-	},
+	}],
 	"appConfig": {
 		"boasVindas": "Servidor Modbus TCP Disponivel na Porta",
 		"tempoAtualizacao": 1000

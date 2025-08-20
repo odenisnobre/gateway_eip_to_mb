@@ -5,6 +5,8 @@ Denis Nobre - Salobo
 08/2025
 */
 
+const { Tag } = require("ethernet-ip");
+
 // Define variavel para controle de mensagens
 const mensagensJaLogadas = new Set();
 
@@ -42,7 +44,9 @@ async function leituraHR(PLC, tags, leitura, conectado){
 			const tag = new Tag(nome);
 			try {
 				await PLC.readTag(tag);
+				console.log(tag)
 				const valor = tag.value;
+				console.log(valor)
 				const buf = Buffer.alloc(4);
 				buf.writeFloatBE(valor);
 				leitura[i * 2]     = buf.readUInt16BE(0);
@@ -90,4 +94,40 @@ async function simuladorHR(leitura){
 	return true
 }
 
-module.exports = { conectarPLC, simuladorHR };
+// Lê variáveis FLOAT em Holding Registers (cada float -> 2 words
+async function leituraHRFloat(PLC, tags, holdingRegisters, hrBase) {
+  for (let i = 0; i < tags.length; i++) {
+    const nome = tags[i];
+    const tag = new Tag(nome);
+    try {
+      await PLC.readTag(tag);
+      const valor = tag.value;
+      const buf = Buffer.alloc(4);
+      buf.writeFloatBE(valor);
+      holdingRegisters[hrBase + i * 2] = buf.readUInt16BE(0);
+      holdingRegisters[hrBase + i * 2 + 1] = buf.readUInt16BE(2);
+      // console.log(`${nome}: ${valor}`);
+    } catch (err) {
+      console.warn(`Erro ao ler HR ${nome}:`, err.message);
+      throw err;
+    }
+  }
+}
+
+// Lê variáveis BOOL em Coils (leitura)
+async function leituraCoilBool(PLC, tags, coilsArray, coilBase) {
+  for (let i = 0; i < tags.length; i++) {
+    const nome = tags[i];
+    const tag = new Tag(nome);
+    try {
+      await PLC.readTag(tag);
+      coilsArray[coilBase + i] = !!tag.value;
+      // console.log(`${nome}: ${!!tag.value}`);
+    } catch (err) {
+      console.warn(`Erro ao ler COIL ${nome}:`, err.message);
+      throw err;
+    }
+  }
+}
+
+module.exports = { conectarPLC, simuladorHR, simuladorHR, leituraHRFloat, leituraCoilBool };

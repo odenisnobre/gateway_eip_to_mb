@@ -8,7 +8,7 @@ Denis Nobre - Salobo
 /* Carrega modulos */
 const ModbusRTU = require("modbus-serial");
 const { Controller, Tag } = require("ethernet-ip");
-const { conectarPLC, simuladorHR } = require('./utils/funcs');
+const { conectarPLC, simuladorHR, leituraHRFloat, leituraCoilBool } = require('./utils/funcs');
 const fs = require('fs');
 const path = require('path');
 
@@ -123,7 +123,19 @@ console.log(`${config.appConfig.boasVindas} ${config.mbserverConfig.porta}...`);
 /****** Bloco inicio configuracao do PLC *****/
 
 // Define novo objeto PLC Control
-const PLC = new Controller();
+// const PLC = new Controller();
+
+const plcs = (config.plcs || []).map(p => ({
+  ctrl: new Controller(),
+  cfg: p,
+  conectado: false,
+  tagsHR: p.variaveis.filter(v => v.tipo === 'hr').map(v => v.nome),
+  tagsCoilRead: p.variaveis.filter(v => v.tipo === 'coil' && v.funcao === 'leitura').map(v => v.nome),
+  tagsCoilWrite: p.variaveis.filter(v => v.tipo === 'coil' && v.funcao === 'escrita').map(v => v.nome),
+}));
+
+
+////////
 
 // Inicia variaveis por tipo
 var tagsHoldingRegisters = [];
@@ -131,18 +143,18 @@ var tagsCoilsLeitura = [];
 var tagsCoilsEscrita = [];
 
 // Define variavel com todas a variaveis configuradas
-const variaveisPLC = config.plcConfig.variaveis;
+//const variaveisPLC = config.plcConfig.variaveis;
 
 // Array com as tags de leitura do PLC */
-variaveisPLC.forEach(function(element) {	
-	if(element.tipo == 'coil' && element.funcao == 'leitura'){
-		tagsCoilsLeitura.push(element.nome);
-	} else if(element.tipo == 'coil' && element.funcao == 'escrita'){
-		tagsCoilsEscrita.push(element.nome);  
-	} else {
-		tagsHoldingRegisters.push(element.nome);
-	}
-})
+//variaveisPLC.forEach(function(element) {	
+//	if(element.tipo == 'coil' && element.funcao == 'leitura'){
+//		tagsCoilsLeitura.push(element.nome);
+//	} else if(element.tipo == 'coil' && element.funcao == 'escrita'){
+//		tagsCoilsEscrita.push(element.nome);  
+//	} else {
+//		tagsHoldingRegisters.push(element.nome);
+//	}
+//})
 
 // Inicia variável de status de conexão com o PLC
 let conectado = false;
@@ -158,10 +170,10 @@ process.on("uncaughtException", (err) => {
 });
 
 // Monitora comunicação com o PLC
-PLC.on("error", (err) => {
-   console.warn("Falha de comunicação:", err.code || err.message);
-    conectado = false;
-});
+//PLC.on("error", (err) => {
+//   console.warn("Falha de comunicação:", err.code || err.message);
+//    conectado = false;
+//});
 
 /*****************************************************************************/
 
@@ -169,15 +181,41 @@ PLC.on("error", (err) => {
 
 // Efetua leitura das tags do PLC
 async function lerTags() {
-    if (!conectado && !MB.simulador) {
-        conectado = await conectarPLC(PLC, config, coilsLeitura, MB);
-        return;
+  if (MB.simulador) {
+    await simuladorHR(holdingRegisters);
+    return;
+  }
+  
+  // Percorre cada PLC
+  await Promise.all(plcs.map(async (p) => {
+    try {
+      if (!p.conectado) {
+        // Reutiliza sua função existente (usa bitFalha do MB):contentReference[oaicite:5]{index=5}
+        p.conectado = await conectarPLC(p.ctrl, { plcConfig: p.cfg }, coilsLeitura, MB);
+        if (!p.conectado) return;
+      }
+
+      // 1) Lê HR (floats -> 2 words) e grava no offset hrBase
+      if (p.tagsHR.length > 0) {
+        await leituraHRFloat(p.ctrl, p.tagsHR, holdingRegisters, p.cfg.hrBase || 0);
+      }
+
+      // 2) Lê Coils de leitura e grava no offset coilReadBase
+      if (p.tagsCoilRead.length > 0) {
+        await leituraCoilBool(p.ctrl, p.tagsCoilRead, coilsLeitura, p.cfg.coilReadBase || 0);
+      }
+
+      // 3) Opcional: Coils de escrita -> você pode ler do array coilsEscrita
+      //    e enviar ao PLC se precisar "escrever no PLC" (não incluso aqui).
+    } catch (err) {
+      // Marca desconectado para tentar reconectar no próximo ciclo
+      p.conectado = false;
+      // Seta bit de falha global (ou você pode ter 1 bit por PLC em offsets distintos)
+      coilsLeitura[MB.bitFalha] = 1;
+      // Log enxuto (se quiser, use logOnce por mensagem)
+      // console.warn(`PLC ${p.cfg.ip}: ${err.message}`);
     }
-	
-	if(MB.simulador){
-		const s = await simuladorHR(holdingRegisters)
-		console.log(s)
-	}
+  }));
 }
 /*****************************************************************************/
 
