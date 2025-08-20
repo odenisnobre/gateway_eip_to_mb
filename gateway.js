@@ -49,10 +49,10 @@ console.log('Config usada:', externalConfigPath || '(default embutido)');
 /****** Bloco inicio configuracao servidor modbus *****/
 
 //Define objeto de configuracao modbus
-const MB = config.mbserverConfig;
+const MB = config.mbServerConfig;
 
 //Define quantidade de variaveis dos registros modbus 
-const holdingRegisters = new Array(MB.qntHoldinRegisters).fill(0);
+const holdingRegisters = new Array(MB.qntHoldingRegisters).fill(0);
 const coilsLeitura = new Array(MB.qntCoilsLeitura).fill(false);
 const coilsEscrita = new Array(MB.qntCoilsEscrita).fill(false);
 
@@ -115,7 +115,7 @@ serverTCP.on("socketError", (err) => {
 });
 
 // mostra mensagem de log
-console.log(`${config.appConfig.boasVindas} ${config.mbserverConfig.porta}...`);
+console.log(`${config.appConfig.boasVindas} ${MB.porta}...`);
 
 /*****************************************************************************/
 
@@ -176,8 +176,53 @@ async function lerTags() {
 	
 	if(MB.simulador){
 		const s = await simuladorHR(holdingRegisters)
-		console.log(s)
 	}
+
+	
+	
+	
+	if(tagsHoldingRegisters.length > 1){
+		for (let i = 0; i < tagsHoldingRegisters.length; i++) {
+			const nome = tagsHoldingRegisters[i];
+			const tag = new Tag(nome);
+			try {
+				await PLC.readTag(tag);
+				const valor = tag.value;
+				const buf = Buffer.alloc(4);
+				buf.writeFloatBE(valor);
+				holdingRegisters[i * 2]     = buf.readUInt16BE(0);
+				holdingRegisters[i * 2 + 1] = buf.readUInt16BE(2);
+				//console.log(`${nome}: ${valor}`);
+			} catch (err) {
+				console.warn(`Erro ao ler ${nome}:`, err.message);
+				if(typeof(err.message) !== 'undefined'){
+					conectado = false;
+					break;
+				}
+			}		
+		}
+	}
+	if(tagsCoilsLeitura.length > 0) {
+		for (let k = 1; k < tagsCoilsLeitura.length+1; k++) {
+			const nome = tagsCoilsLeitura[k-1];
+			console.log(nome)
+			const tag = new Tag(nome);			
+			try {
+				await PLC.readTag(tag);
+				const valor = tag.value;
+				coilsLeitura[k] = valor;
+				console.log(`${nome}: ${valor}`);
+			} catch (err) {
+				// adicionar aqui uma mensagem de log
+				console.warn(`Erro ao ler ${nome}:`, err.message);
+				if(typeof(err.message) !== 'undefined'){
+					conectado = false;
+					break;
+				}
+			}	
+		}
+	}
+	
 }
 /*****************************************************************************/
 

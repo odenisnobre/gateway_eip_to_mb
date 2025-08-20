@@ -25,11 +25,11 @@ async function conectarPLC(PLC, config, coilsLeitura, MB) {
         await PLC.connect(config.plcConfig.ip, config.plcConfig.slot);
 		logOnce(mensagensJaLogadas, "Conectado ao PLC");
         console.log("Conectado ao PLC");
-        coilsLeitura[MB.bitFalha] = 0;
+        coilsLeitura[MB.bitFalha] = 1;
         return true;
     } catch (err) {
         logOnce(mensagensJaLogadas, `Erro ao conectar: ${err.message}`, "erro");
-        coilsLeitura[MB.bitFalha] = 1;
+        coilsLeitura[MB.bitFalha] = 0;
         return false;
     }
 }
