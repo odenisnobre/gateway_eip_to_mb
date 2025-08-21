@@ -18,6 +18,9 @@
 		"variaveis": [			
 				{"nome": "Teste11", "tipo": "coil", "funcao": "leitura"},
 				{"nome": "TON1.EN", "tipo": "coil", "funcao": "leitura"},
+				{"nome": "B1", "tipo": "coil", "funcao": "escrita"},
+				{"nome": "B2", "tipo": "coil", "funcao": "escrita"},
+				{"nome": "B3", "tipo": "coil", "funcao": "escrita"},
 				{"nome": "AAA", "tipo": "holdingRegister"},
 				{"nome": "BBB", "tipo": "holdingRegister"},
 				{"nome": "CTU1.ACC", "tipo": "holdingRegister"}
