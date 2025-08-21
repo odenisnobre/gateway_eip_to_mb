@@ -237,31 +237,32 @@ async function lerTags() {
 	if (!conectado) return;	
 	if(MB.simulador){
 		const s = await simuladorHR(holdingRegisters)
-	}	
-	try {
-		if (Object.keys(grupoHR.state.tags).length) await PLC.readTagGroup(grupoHR);
-        if (Object.keys(grupoCoilLeitura.state.tags).length) await PLC.readTagGroup(grupoCoilLeitura);
-		if (Object.keys(grupoCoilEscrita.state.tags).length) await PLC.readTagGroup(grupoCoilEscrita);
-        let iHR = 0;
-        let iCoilLeitura = 1;
-		let iCoilEscrita = 0;
-        grupoHR.forEach(tag => {
-			if (typeof tag.value !== 'number') return;
-            const buf = Buffer.alloc(4);
-            buf.writeFloatBE(tag.value);
-            holdingRegisters[iHR * 2] = buf.readUInt16BE(0);
-            holdingRegisters[iHR * 2 + 1] = buf.readUInt16BE(2);
-            iHR++;
-        });
-        grupoCoilLeitura.forEach(tag => {
-            coilsLeitura[iCoilLeitura] = !!tag.value;
-            iCoilLeitura++;
-        });
-    } catch (err) {
-        console.warn(`${carregaData()} - Erro ao ler grupo de tags: ${fmtErr(err)}`);
-        conectado = false;
-        variaveisCarregadas = false;
-    }
+	} else {
+		try {
+			if (Object.keys(grupoHR.state.tags).length) await PLC.readTagGroup(grupoHR);
+			if (Object.keys(grupoCoilLeitura.state.tags).length) await PLC.readTagGroup(grupoCoilLeitura);
+			if (Object.keys(grupoCoilEscrita.state.tags).length) await PLC.readTagGroup(grupoCoilEscrita);
+			let iHR = 0;
+			let iCoilLeitura = 1;
+			let iCoilEscrita = 0;
+			grupoHR.forEach(tag => {
+				if (typeof tag.value !== 'number') return;
+				const buf = Buffer.alloc(4);
+				buf.writeFloatBE(tag.value);
+				holdingRegisters[iHR * 2] = buf.readUInt16BE(0);
+				holdingRegisters[iHR * 2 + 1] = buf.readUInt16BE(2);
+				iHR++;
+			});
+			grupoCoilLeitura.forEach(tag => {
+				coilsLeitura[iCoilLeitura] = !!tag.value;
+				iCoilLeitura++;
+			});
+		} catch (err) {
+			console.warn(`${carregaData()} - Erro ao ler grupo de tags: ${fmtErr(err)}`);
+			conectado = false;
+			variaveisCarregadas = false;
+		}
+	}
 	
 }
 /*****************************************************************************/
