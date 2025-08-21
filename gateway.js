@@ -15,12 +15,14 @@ const path = require('path');
 /****** Bloco inicio carregamento arquivo de configuracao *****/
 const isPkg = !!process.pkg;
 const exeDir = isPkg ? path.dirname(process.execPath) : __dirname;
+
 function firstExisting(arr) {
 	for (const p of arr) {
 		try { if (p && fs.existsSync(p)) return p; } catch (_) {}
 	}
 	return null;
 }
+
 const candidates = [
 	process.env.MYAPP_CONFIG,                              
 	path.join(exeDir, 'configuration.json'),              
@@ -30,8 +32,10 @@ const candidates = [
 			? '/Library/Application Support/MinhaApp/configuration.json'
 			: '/etc/minhaapp/configuration.json'),
 ];
+
 const externalConfigPath = firstExisting(candidates);
 let config = {};
+
 try {
 	const defaultPath = path.join(__dirname, 'utils', 'config-default.json');
 	const defaultCfg = JSON.parse(fs.readFileSync(defaultPath, 'utf8'));
@@ -43,11 +47,11 @@ try {
 } catch (e) {
 	console.error(`${carregaData()} - Falha ao carregar configuração: ${e.message}`);
 }
+
 console.log('Config usada:', externalConfigPath || '(default embutido)');
 /*****************************************************************************/
 
 /****** Bloco inicio configuracao servidor modbus *****/
-
 //Define objeto de configuracao modbus
 const MB = config.mbServerConfig;
 
@@ -116,12 +120,10 @@ serverTCP.on("socketError", (err) => {
 
 // mostra mensagem de log
 console.log(`${carregaData()} - ${config.appConfig.boasVindas} ${MB.porta}`);
-
 /*****************************************************************************/
 
-
+/*****************************************************************************/
 /****** Bloco inicio configuracao do PLC *****/
-
 // Inicia variaveis por tipo
 var grupoHR = new TagGroup();
 var grupoCoilLeitura = new TagGroup();
@@ -149,8 +151,7 @@ async function validaTagGrupo(tagName, group) {
         console.log(`[OK] Tag válida adicionada: ${tagName}`);
     } catch (err) {
         console.warn(`[SKIP] Tag inválida: ${tagName} → ${fmtErr(err)}`);
-    }
-	
+    }	
 }
 
 // Carrega todas as variáveis e separa por tipo
@@ -159,7 +160,6 @@ async function carregaVariaveis() {
     grupoCoilLeitura = new TagGroup();
 	grupoCoilEscrita = new TagGroup();
 	console.log(`${carregaData()} - Lendo variáveis!`)
-
     for (const element of variaveisPLC) {
         if (element.tipo === 'coil' && element.funcao == 'leitura') {
             await validaTagGrupo(element.nome, grupoCoilLeitura);
@@ -169,7 +169,6 @@ async function carregaVariaveis() {
             await validaTagGrupo(element.nome, grupoHR);
         }
     }
-
     variaveisCarregadas = true;
 	console.log(`${carregaData()} - variaveis carregadas!`)
 }
@@ -177,37 +176,29 @@ async function carregaVariaveis() {
 // Monitora conexao PLC
 async function conectarPLC() {
     if (conectando || conectado) return;
-
     conectando = true;
-
     try {
         const agora = Date.now();
         if (agora - ultimoErroConexao > tempoMinimoEntreErros) {
             console.log(`${carregaData()} - Tentando conectar ao PLC!`);
             ultimoErroConexao = agora;
         }
-
         await PLC.connect(config.plcConfig.ip, config.plcConfig.slot, { timeout: config.appConfig.tempoEsperaPLC });
         conectado = true;
         variaveisCarregadas = false;
         console.log(`${carregaData()} - Conectado ao PLC`);
-
         if (!variaveisCarregadas) {
             await carregaVariaveis();
         }
-
     } catch (err) {
         if (Date.now() - ultimoErroConexao > tempoMinimoEntreErros) {
             console.warn(`${carregaData()} - Erro ao conectar: ${fmtErr(err)}`);
-            ultimoErroConexao = Date.now();
-        }
+            ultimoErroConexao = Date.now();        }
         conectado = false;
-
         // Aguarda 5 segundos antes de liberar nova tentativa
 		console.log(`${carregaData()} - Aguardando Reconexão!`)
         await delay(config.appConfig.tempoReconecta);
     }
-
     conectando = false;
 }
 
@@ -237,30 +228,23 @@ PLC.on("error", (err) => {
 /*****************************************************************************/
 
 /****** Bloco ciclo de leitura *****/
-
 // Efetua leitura das tags do PLC
 async function lerTags() {
     if (!conectado && !conectando) {
         await conectarPLC();
         return;
-    }
-	
-	if (!conectado) return;
-	
+    }	
+	if (!conectado) return;	
 	if(MB.simulador){
 		const s = await simuladorHR(holdingRegisters)
-	}
-	
-	
+	}	
 	try {
 		if (Object.keys(grupoHR.state.tags).length) await PLC.readTagGroup(grupoHR);
         if (Object.keys(grupoCoilLeitura.state.tags).length) await PLC.readTagGroup(grupoCoilLeitura);
 		if (Object.keys(grupoCoilEscrita.state.tags).length) await PLC.readTagGroup(grupoCoilEscrita);
-
         let iHR = 0;
         let iCoilLeitura = 1;
 		let iCoilEscrita = 0;
-
         grupoHR.forEach(tag => {
 			if (typeof tag.value !== 'number') return;
             const buf = Buffer.alloc(4);
@@ -269,12 +253,10 @@ async function lerTags() {
             holdingRegisters[iHR * 2 + 1] = buf.readUInt16BE(2);
             iHR++;
         });
-
         grupoCoilLeitura.forEach(tag => {
             coilsLeitura[iCoilLeitura] = !!tag.value;
             iCoilLeitura++;
         });
-
     } catch (err) {
         console.warn(`${carregaData()} - Erro ao ler grupo de tags: ${fmtErr(err)}`);
         conectado = false;
@@ -285,8 +267,8 @@ async function lerTags() {
 /*****************************************************************************/
 
 /****** Bloco ciclo *****/
-
 // Configura tempo de atualização
+
 setInterval(lerTags, config.appConfig.tempoAtualizacao);
 
 /*****************************************************************************/
