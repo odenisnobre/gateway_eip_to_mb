@@ -7,8 +7,8 @@ Denis Nobre - Salobo
 
 /* Carrega modulos */
 const ModbusRTU = require("modbus-serial");
-const { Controller, Tag } = require("ethernet-ip");
-const { conectarPLC, simuladorHR } = require('./utils/funcs');
+const { Controller, Tag, TagGroup } = require("ethernet-ip");
+const { simuladorHR, delay, carregaData, fmtErr } = require('./utils/funcs');
 const fs = require('fs');
 const path = require('path');
 
@@ -41,7 +41,7 @@ try {
 		config = defaultCfg;
 	}
 } catch (e) {
-	console.error('Falha ao carregar configuração:', e.message);
+	console.error(`${carregaData()} - Falha ao carregar configuração: ${e.message}`);
 }
 console.log('Config usada:', externalConfigPath || '(default embutido)');
 /*****************************************************************************/
@@ -111,55 +111,126 @@ const serverTCP = new ModbusRTU.ServerTCP(vector, {
 
 // Monitora comunicação do servidor Modbus */
 serverTCP.on("socketError", (err) => {
-    console.error("Erro de socket:", err);
+    console.error(`${carregaData()} - Erro de socket: ${fmtErr(err)}`);
 });
 
 // mostra mensagem de log
-console.log(`${config.appConfig.boasVindas} ${MB.porta} : ${MB.id}`);
+console.log(`${carregaData()} - ${config.appConfig.boasVindas} ${MB.porta}`);
 
 /*****************************************************************************/
 
 
 /****** Bloco inicio configuracao do PLC *****/
 
-// Define novo objeto PLC Control
-const PLC = new Controller();
-
 // Inicia variaveis por tipo
-var tagsHoldingRegisters = [];
-var tagsCoilsLeitura = [];
-var tagsCoilsEscrita = [];
+var grupoHR = new TagGroup();
+var grupoCoilLeitura = new TagGroup();
+var grupoCoilEscrita = new TagGroup();
+
+// Controle de conexao com o PLC
+let conectado = false;
+let conectando = false;
+let variaveisCarregadas = false;
+let ultimoErroConexao = 0;
+const tempoMinimoEntreErros = config.appConfig.tempoEntreErros;
 
 // Define variavel com todas a variaveis configuradas
 const variaveisPLC = config.plcConfig.variaveis;
 
-// Array com as tags de leitura do PLC */
-variaveisPLC.forEach(function(element) {	
-	if(element.tipo == 'coil' && element.funcao == 'leitura'){
-		tagsCoilsLeitura.push(element.nome);
-	} else if(element.tipo == 'coil' && element.funcao == 'escrita'){
-		tagsCoilsEscrita.push(element.nome);  
-	} else {
-		tagsHoldingRegisters.push(element.nome);
-	}
-})
+// Define novo objeto PLC Control
+const PLC = new Controller();
 
-// Inicia variável de status de conexão com o PLC
-let conectado = false;
+// Verifica e adiciona tags válidas
+async function validaTagGrupo(tagName, group) {
+    const tag = new Tag(tagName);
+    try {
+        await PLC.readTag(tag);
+        group.add(tag);
+        console.log(`[OK] Tag válida adicionada: ${tagName}`);
+    } catch (err) {
+        console.warn(`[SKIP] Tag inválida: ${tagName} → ${fmtErr(err)}`);
+    }
+	
+}
+
+// Carrega todas as variáveis e separa por tipo
+async function carregaVariaveis() {
+    grupoHR = new TagGroup();
+    grupoCoilLeitura = new TagGroup();
+	grupoCoilEscrita = new TagGroup();
+	console.log(`${carregaData()} - Lendo variáveis!`)
+
+    for (const element of variaveisPLC) {
+        if (element.tipo === 'coil' && element.funcao == 'leitura') {
+            await validaTagGrupo(element.nome, grupoCoilLeitura);
+        } else if (element.tipo == 'coil' && element.funcao == 'escrita'){
+			await validaTagGrupo(element.nome, grupoCoilEscrita);
+		} else {
+            await validaTagGrupo(element.nome, grupoHR);
+        }
+    }
+
+    variaveisCarregadas = true;
+	console.log(`${carregaData()} - variaveis carregadas!`)
+}
+
+// Monitora conexao PLC
+async function conectarPLC() {
+    if (conectando || conectado) return;
+
+    conectando = true;
+
+    try {
+        const agora = Date.now();
+        if (agora - ultimoErroConexao > tempoMinimoEntreErros) {
+            console.log(`${carregaData()} - Tentando conectar ao PLC!`);
+            ultimoErroConexao = agora;
+        }
+
+        await PLC.connect(config.plcConfig.ip, config.plcConfig.slot, { timeout: config.appConfig.tempoEsperaPLC });
+        conectado = true;
+        variaveisCarregadas = false;
+        console.log(`${carregaData()} - Conectado ao PLC`);
+
+        if (!variaveisCarregadas) {
+            await carregaVariaveis();
+        }
+
+    } catch (err) {
+        if (Date.now() - ultimoErroConexao > tempoMinimoEntreErros) {
+            console.warn(`${carregaData()} - Erro ao conectar: ${fmtErr(err)}`);
+            ultimoErroConexao = Date.now();
+        }
+        conectado = false;
+
+        // Aguarda 5 segundos antes de liberar nova tentativa
+		console.log(`${carregaData()} - Aguardando Reconexão!`)
+        await delay(config.appConfig.tempoReconecta);
+    }
+
+    conectando = false;
+}
 
 // Inicia processo para verificação de comunicação com o PLC
 process.on("uncaughtException", (err) => {
+	const msg = fmtErr(err);
     if (err.message.includes("Socket Transmission Failure Occurred")) {
-		console.warn("Conexão perdida com o PLC. Tentando reconectar...");
+		console.warn(`${carregaData()} - Conexão perdida com o PLC. Tentando reconectar!`);
         conectado = false;
     } else {
-        console.error("Erro fatal:", err);
+        console.error(`${carregaData()} - Erro fatal: ${msg}`);
     }
+});
+
+// Inicia processo para verificação de comunicação com o PLC
+process.on("unhandledRejection", (reason) => {
+    console.error(`${carregaData()} - Promessa rejeitada sem tratamento: ${fmtErr(reason)}`);
+    conectado = false;
 });
 
 // Monitora comunicação com o PLC
 PLC.on("error", (err) => {
-   console.warn("Falha de comunicação:", err.code || err.message);
+   console.warn(`${carregaData()} - Falha de comunicação: ${fmtErr(err)}`);
     conectado = false;
 });
 
@@ -169,59 +240,46 @@ PLC.on("error", (err) => {
 
 // Efetua leitura das tags do PLC
 async function lerTags() {
-    if (!conectado && !MB.simulador) {
-        conectado = await conectarPLC(PLC, config, coilsLeitura, MB);
+    if (!conectado && !conectando) {
+        await conectarPLC();
         return;
     }
+	
+	if (!conectado) return;
 	
 	if(MB.simulador){
 		const s = await simuladorHR(holdingRegisters)
 	}
+	
+	
+	try {
+		if (Object.keys(grupoHR.state.tags).length) await PLC.readTagGroup(grupoHR);
+        if (Object.keys(grupoCoilLeitura.state.tags).length) await PLC.readTagGroup(grupoCoilLeitura);
+		if (Object.keys(grupoCoilEscrita.state.tags).length) await PLC.readTagGroup(grupoCoilEscrita);
 
-	
-	
-	
-	if(tagsHoldingRegisters.length > 1 && !MB.simulador){
-		for (let i = 0; i < tagsHoldingRegisters.length; i++) {
-			const nome = tagsHoldingRegisters[i];
-			const tag = new Tag(nome);
-			try {
-				await PLC.readTag(tag);
-				const valor = tag.value;
-				const buf = Buffer.alloc(4);
-				buf.writeFloatBE(valor);
-				holdingRegisters[i * 2]     = buf.readUInt16BE(0);
-				holdingRegisters[i * 2 + 1] = buf.readUInt16BE(2);
-				//console.log(`${nome}: ${valor}`);
-			} catch (err) {
-				console.warn(`Erro ao ler ${nome}:`, err.message);
-				if(typeof(err.message) !== 'undefined'){
-					conectado = false;
-					break;
-				}
-			}		
-		}
-	}
-	if(tagsCoilsLeitura.length > 0 && !MB.simulador) {
-		for (let k = 1; k < tagsCoilsLeitura.length+1; k++) {
-			const nome = tagsCoilsLeitura[k-1];
-			console.log(nome)
-			const tag = new Tag(nome);			
-			try {
-				await PLC.readTag(tag);
-				const valor = tag.value;
-				coilsLeitura[k] = valor;
-				console.log(`${nome}: ${valor}`);
-			} catch (err) {
-				// adicionar aqui uma mensagem de log
-				console.warn(`Erro ao ler ${nome}:`, err.message);
-				if(typeof(err.message) !== 'undefined'){
-					conectado = false;
-					break;
-				}
-			}	
-		}
-	}
+        let iHR = 0;
+        let iCoilLeitura = 1;
+		let iCoilEscrita = 0;
+
+        grupoHR.forEach(tag => {
+			if (typeof tag.value !== 'number') return;
+            const buf = Buffer.alloc(4);
+            buf.writeFloatBE(tag.value);
+            holdingRegisters[iHR * 2] = buf.readUInt16BE(0);
+            holdingRegisters[iHR * 2 + 1] = buf.readUInt16BE(2);
+            iHR++;
+        });
+
+        grupoCoilLeitura.forEach(tag => {
+            coilsLeitura[iCoilLeitura] = !!tag.value;
+            iCoilLeitura++;
+        });
+
+    } catch (err) {
+        console.warn(`${carregaData()} - Erro ao ler grupo de tags: ${fmtErr(err)}`);
+        conectado = false;
+        variaveisCarregadas = false;
+    }
 	
 }
 /*****************************************************************************/
