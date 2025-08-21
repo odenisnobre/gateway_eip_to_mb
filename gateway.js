@@ -295,10 +295,7 @@ async function lerTags() {
 			console.warn(`${carregaData()} - Erro ao ler grupo de tags: ${fmtErr(err)}`);
 			conectado = false;
 			variaveisCarregadas = false;
-		}
-		
-		
-		
+		}		
 	}
 	
 }
