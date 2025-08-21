@@ -102,7 +102,9 @@
 	},
 	"appConfig": {
 		"boasVindas": "Servidor Modbus TCP Disponivel na Porta",
-		"tempoAtualizacao": 1000
+		"tempoAtualizacao": 1000,
+		"tempoReconecta": 30000,
+		"tempoEsperaPLC": 5000
 	}
 }
 
