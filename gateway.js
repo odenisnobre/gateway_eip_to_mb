@@ -7,7 +7,8 @@ Denis Nobre - Salobo
 
 /* Carrega modulos */
 const ModbusRTU = require("modbus-serial");
-const { Controller, Tag, TagGroup } = require("ethernet-ip");
+const { Controller, Tag, TagGroup, EthernetIP  } = require("ethernet-ip");
+const { DINT, BOOL } = EthernetIP.CIP.DataTypes.Types;
 const { simuladorHR, delay, carregaData, fmtErr } = require('./utils/funcs');
 const fs = require('fs');
 const path = require('path');
@@ -128,6 +129,7 @@ console.log(`${carregaData()} - ${config.appConfig.boasVindas} ${MB.porta}`);
 var grupoHR = new TagGroup();
 var grupoCoilLeitura = new TagGroup();
 var grupoCoilEscrita = new TagGroup();
+var grupoEscrita = []
 
 // Controle de conexao com o PLC
 let conectado = false;
@@ -135,6 +137,7 @@ let conectando = false;
 let variaveisCarregadas = false;
 let ultimoErroConexao = 0;
 const tempoMinimoEntreErros = config.appConfig.tempoEntreErros;
+let verificaTag = false
 
 // Define variavel com todas a variaveis configuradas
 const variaveisPLC = config.plcConfig.variaveis;
@@ -154,6 +157,18 @@ async function validaTagGrupo(tagName, group) {
     }	
 }
 
+// Verifica e adiciona tags válidas
+async function validaTag(tagName) {
+	verificaTag = false
+    const tag = new Tag(tagName);
+    try {
+        await PLC.readTag(tag);  
+		verificaTag = true				
+    } catch (err){
+		verificaTag = false
+    }	
+}
+
 // Carrega todas as variáveis e separa por tipo
 async function carregaVariaveis() {
     grupoHR = new TagGroup();
@@ -165,6 +180,7 @@ async function carregaVariaveis() {
             await validaTagGrupo(element.nome, grupoCoilLeitura);
         } else if (element.tipo == 'coil' && element.funcao == 'escrita'){
 			await validaTagGrupo(element.nome, grupoCoilEscrita);
+			grupoEscrita.push(element.nome)
 		} else {
             await validaTagGrupo(element.nome, grupoHR);
         }
@@ -234,7 +250,10 @@ async function lerTags() {
         await conectarPLC();
         return;
     }	
-	if (!conectado) return;	
+	if (!conectado) return;
+	
+	// Simulado habilitado gera numeros aleatorios na quantidade de registros
+	//definidos para HR, se nao estiver habilitado carrega valor do PLC
 	if(MB.simulador){
 		const s = await simuladorHR(holdingRegisters)
 	} else {
@@ -245,6 +264,8 @@ async function lerTags() {
 			let iHR = 0;
 			let iCoilLeitura = 1;
 			let iCoilEscrita = 0;
+			
+			// Atualiza HR
 			grupoHR.forEach(tag => {
 				if (typeof tag.value !== 'number') return;
 				const buf = Buffer.alloc(4);
@@ -253,15 +274,31 @@ async function lerTags() {
 				holdingRegisters[iHR * 2 + 1] = buf.readUInt16BE(2);
 				iHR++;
 			});
+			
+			// Atualiza coils de leitura
 			grupoCoilLeitura.forEach(tag => {
 				coilsLeitura[iCoilLeitura] = !!tag.value;
 				iCoilLeitura++;
 			});
+			
+			// Atualiza coils de escrita
+			for (var i in grupoEscrita){
+				const tagName = grupoEscrita[i];
+				await validaTag(tagName);
+				if(verificaTag){
+					const aTag = new Tag(tagName, null, BOOL);
+					const oValor = coilsEscrita[i];
+					await PLC.writeTag(aTag, oValor);
+				}
+			}
 		} catch (err) {
 			console.warn(`${carregaData()} - Erro ao ler grupo de tags: ${fmtErr(err)}`);
 			conectado = false;
 			variaveisCarregadas = false;
 		}
+		
+		
+		
 	}
 	
 }
