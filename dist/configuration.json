@@ -1,0 +1,39 @@
+{
+	"mbServerConfig": {
+		"enderecoInicialCoilsLeitura": 100,	
+		"enderecoInicialCoilsEscrita": 500,	
+		"enderecoInicialHR": 100,			
+		"qntCoilsEscrita": 100,
+		"qntCoilsLeitura": 100,
+		"qntHoldingRegisters": 100,
+		"porta": 8502,
+		"ip": "0.0.0.0",
+		"id": 1,
+		"bitFalha": 0,
+		"simulador": false
+	},
+	"plcConfig": {
+		"ip": "192.168.0.154",
+		"slot": 0,
+		"variaveis": [			
+				{"nome": "Teste11", "tipo": "coil", "funcao": "leitura"},
+				{"nome": "TON1.EN", "tipo": "coil", "funcao": "leitura"},
+				{"nome": "B3", "tipo": "coil", "funcao": "escrita"},
+				{"nome": "B2", "tipo": "coil", "funcao": "escrita"},
+				{"nome": "B1", "tipo": "coil", "funcao": "escrita"},
+				{"nome": "Inicio", "tipo": "coil", "funcao": "escrita"},
+				{"nome": "AAA", "tipo": "holdingRegister"},
+				{"nome": "BBB", "tipo": "holdingRegister"},
+				{"nome": "CTU1.ACC", "tipo": "holdingRegister"}
+				
+		]
+	},
+	"appConfig": {
+		"boasVindas": "Servidor Modbus TCP Disponivel na Porta",
+		"tempoAtualizacao": 1000,
+		"tempoEntreErros": 10000,
+		"tempoReconecta": 30000,
+		"tempoEsperaPLC": 5000
+	}
+}
+
