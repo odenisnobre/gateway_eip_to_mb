@@ -201,6 +201,7 @@ async function conectarPLC() {
         }
         await PLC.connect(config.plcConfig.ip, config.plcConfig.slot, { timeout: config.appConfig.tempoEsperaPLC });
         conectado = true;
+		coilsLeitura[bitFalha] = true
         variaveisCarregadas = false;
         console.log(`${carregaData()} - Conectado ao PLC`);
         if (!variaveisCarregadas) {
@@ -211,6 +212,7 @@ async function conectarPLC() {
             console.warn(`${carregaData()} - Erro ao conectar: ${fmtErr(err)}`);
             ultimoErroConexao = Date.now();        }
         conectado = false;
+		coilsLeitura[bitFalha] = true
         // Aguarda 5 segundos antes de liberar nova tentativa
 		console.log(`${carregaData()} - Aguardando Reconexão!`)
         await delay(config.appConfig.tempoReconecta);
@@ -294,6 +296,7 @@ async function lerTags() {
 		} catch (err) {
 			console.warn(`${carregaData()} - Erro ao ler grupo de tags: ${fmtErr(err)}`);
 			conectado = false;
+			coilsLeitura[bitFalha] = false
 			variaveisCarregadas = false;
 		}		
 	}
