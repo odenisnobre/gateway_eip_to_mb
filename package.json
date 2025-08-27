@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node gateway.js",
     "dev": "node gateway.js",
-    "build:win": "pkg . --targets node16-win-x64 --output dist/gateway",
+    "build:win": "pkg . --targets node16-win-x64 --output dist/gateway && npm run copy-config",
+	"copy-config": "npx shx cp configuration.json dist/",
     "build": "npm run build:win"
   },
   "dependencies": {

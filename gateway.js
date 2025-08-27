@@ -201,6 +201,7 @@ async function conectarPLC() {
         }
         await PLC.connect(config.plcConfig.ip, config.plcConfig.slot, { timeout: config.appConfig.tempoEsperaPLC });
         conectado = true;
+		coilsLeitura[MB.bitFalha] = true
         variaveisCarregadas = false;
         console.log(`${carregaData()} - Conectado ao PLC`);
         if (!variaveisCarregadas) {
@@ -211,6 +212,7 @@ async function conectarPLC() {
             console.warn(`${carregaData()} - Erro ao conectar: ${fmtErr(err)}`);
             ultimoErroConexao = Date.now();        }
         conectado = false;
+		coilsLeitura[MB.bitFalha] = false
         // Aguarda 5 segundos antes de liberar nova tentativa
 		console.log(`${carregaData()} - Aguardando Reconexão!`)
         await delay(config.appConfig.tempoReconecta);
@@ -224,6 +226,7 @@ process.on("uncaughtException", (err) => {
     if (err.message.includes("Socket Transmission Failure Occurred")) {
 		console.warn(`${carregaData()} - Conexão perdida com o PLC. Tentando reconectar!`);
         conectado = false;
+		coilsLeitura[MB.bitFalha] = false
     } else {
         console.error(`${carregaData()} - Erro fatal: ${msg}`);
     }
@@ -233,12 +236,14 @@ process.on("uncaughtException", (err) => {
 process.on("unhandledRejection", (reason) => {
     console.error(`${carregaData()} - Promessa rejeitada sem tratamento: ${fmtErr(reason)}`);
     conectado = false;
+	coilsLeitura[MB.bitFalha] = false
 });
 
 // Monitora comunicação com o PLC
 PLC.on("error", (err) => {
    console.warn(`${carregaData()} - Falha de comunicação: ${fmtErr(err)}`);
     conectado = false;
+	coilsLeitura[MB.bitFalha] = false
 });
 
 /*****************************************************************************/
@@ -294,6 +299,7 @@ async function lerTags() {
 		} catch (err) {
 			console.warn(`${carregaData()} - Erro ao ler grupo de tags: ${fmtErr(err)}`);
 			conectado = false;
+			coilsLeitura[MB.bitFalha] = false
 			variaveisCarregadas = false;
 		}		
 	}
