@@ -9,7 +9,7 @@ Denis Nobre - Salobo
 const ModbusRTU = require("modbus-serial");
 const { Controller, Tag, TagGroup, EthernetIP  } = require("ethernet-ip");
 const { DINT, BOOL } = EthernetIP.CIP.DataTypes.Types;
-const { simuladorHR, delay, carregaData, fmtErr } = require('./utils/funcs');
+const { simuladorHR, delay, carregaData, fmtErr, logStateChange, logRepeat, flushRepeatSummaries, logWaitingReconnect  } = require('./utils/funcs');
 const fs = require('fs');
 const path = require('path');
 
@@ -196,52 +196,48 @@ async function conectarPLC() {
     try {
         const agora = Date.now();
         if (agora - ultimoErroConexao > tempoMinimoEntreErros) {
-            console.log(`${carregaData()} - Tentando conectar ao PLC!`);
+            logStateChange('CONNECTING', `PLC ${config.plcConfig.ip}`, console, carregaData);
             ultimoErroConexao = agora;
         }
         await PLC.connect(config.plcConfig.ip, config.plcConfig.slot, { timeout: config.appConfig.tempoEsperaPLC });
         conectado = true;
 		coilsLeitura[MB.bitFalha] = true
         variaveisCarregadas = false;
-        console.log(`${carregaData()} - Conectado ao PLC`);
+        logStateChange('CONNECTED', '', console, carregaData);
         if (!variaveisCarregadas) {
             await carregaVariaveis();
         }
     } catch (err) {
         if (Date.now() - ultimoErroConexao > tempoMinimoEntreErros) {
-            console.warn(`${carregaData()} - Erro ao conectar: ${fmtErr(err)}`);
+            logStateChange('DISCONNECTED', fmtErr(err), console, carregaData);
             ultimoErroConexao = Date.now();        }
         conectado = false;
 		coilsLeitura[MB.bitFalha] = false
         // Aguarda 5 segundos antes de liberar nova tentativa
-		console.log(`${carregaData()} - Aguardando Reconexão!`)
+		logRepeat('PLC_OFFLINE', `Falha ao conectar: ${fmtErr(err)} | ${config.plcConfig.ip}`, 'warn', console, carregaData);
+		logWaitingReconnect(console, carregaData);
         await delay(config.appConfig.tempoReconecta);
     }
     conectando = false;
 }
 
 // Inicia processo para verificação de comunicação com o PLC
-process.on("uncaughtException", (err) => {
+process.on('uncaughtException', (err) => {
 	const msg = fmtErr(err);
-    if (err.message.includes("Socket Transmission Failure Occurred")) {
-		console.warn(`${carregaData()} - Conexão perdida com o PLC. Tentando reconectar!`);
-        conectado = false;
-		coilsLeitura[MB.bitFalha] = false
-    } else {
-        console.error(`${carregaData()} - Erro fatal: ${msg}`);
-    }
+	logRepeat('UNCAUGHT_EXCEPTION', msg, 'error', console, carregaData);
+	logStateChange('DISCONNECTED', msg, console, carregaData);
 });
 
-// Inicia processo para verificação de comunicação com o PLC
-process.on("unhandledRejection", (reason) => {
-    console.error(`${carregaData()} - Promessa rejeitada sem tratamento: ${fmtErr(reason)}`);
-    conectado = false;
-	coilsLeitura[MB.bitFalha] = false
+process.on('unhandledRejection', (reason, promise) => {
+	const msg = fmtErr(reason);
+	logStateChange('DISCONNECTED', msg, console, carregaData);
+	logRepeat('UNHANDLED_REJECTION', msg, 'error', console, carregaData);
 });
 
 // Monitora comunicação com o PLC
 PLC.on("error", (err) => {
-   console.warn(`${carregaData()} - Falha de comunicação: ${fmtErr(err)}`);
+	logStateChange('DISCONNECTED', fmtErr(err), console, carregaData);
+	logRepeat('PLC_ERROR', `Falha de comunicação: ${fmtErr(err)}`, 'warn', console, carregaData);
     conectado = false;
 	coilsLeitura[MB.bitFalha] = false
 });
