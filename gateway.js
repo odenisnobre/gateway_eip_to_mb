@@ -9,20 +9,14 @@ Denis Nobre - Salobo
 const ModbusRTU = require("modbus-serial");
 const { Controller, Tag, TagGroup, EthernetIP  } = require("ethernet-ip");
 const { DINT, BOOL } = EthernetIP.CIP.DataTypes.Types;
-const { simuladorHR, delay, carregaData, fmtErr } = require('./utils/funcs');
+const { simuladorHR, delay, carregaData, fmtErr, } = require('./utils/funcs');
+const { firstExisting } = require('./utils/utils');
 const fs = require('fs');
 const path = require('path');
 
 /****** Bloco inicio carregamento arquivo de configuracao *****/
 const isPkg = !!process.pkg;
 const exeDir = isPkg ? path.dirname(process.execPath) : __dirname;
-
-function firstExisting(arr) {
-	for (const p of arr) {
-		try { if (p && fs.existsSync(p)) return p; } catch (_) {}
-	}
-	return null;
-}
 
 const candidates = [
 	process.env.MYAPP_CONFIG,                              
